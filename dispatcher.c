@@ -3,9 +3,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "da.h"
+#include "cda.h"
 
 #define BUF_SIZE 1024
+#define TIME_QUANTUM 1
 
 typedef struct process_struct {
     int arrival_time;
@@ -29,7 +30,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     
-    DA *proc_da = newDA(display_proc);
+    CDA *dispatch_queue = newCDA(display_proc);
     char line_buf[BUF_SIZE];
     
     while (fgets(line_buf, BUF_SIZE, dispatch_file)) {
@@ -40,28 +41,17 @@ int main(int argc, char **argv) {
             return 1;
         }
         process *proc = new_proc(arrival_time, priority, proc_time);
-        insertDA(proc_da, proc);
+        insertCDAfront(dispatch_queue, proc);
     }
 
     int curr_time = 0;
-    int proc_ptr = 0;
-    while (proc_ptr < sizeDA(proc_da)) {
-        process *curr_proc = (process *)getDA(proc_da, proc_ptr);
-        printf("curr_time = %d, proc_time = %d\n", curr_time, curr_proc->arrival_time);
-        while (curr_proc->arrival_time == curr_time && proc_ptr < sizeDA(proc_da)) {
-            pid_t child_pid = fork();
-            if (child_pid == 0) {
-                char *time_buf = malloc(sizeof(char) * sizeof(int) * 4 + 1);
-                sprintf(time_buf, "%d", curr_proc->proc_time);
-                char **proc_args = malloc(sizeof(char *));
-                proc_args[0] = time_buf;
-                execvp("./process", proc_args);
-            }
-            curr_proc = getDA(proc_da, proc_ptr++);
-        }
-        sleep(1);
-        curr_time++; 
-    }   
+
+    while (sizeCDA(dispatch_queue) > 0) {
+        process *curr_proc = (process *)removeCDAback(dispatch_queue);
+        
+        curr_time++;
+        sleep(TIME_QUANTUM);
+    }       
     return 0;
 }
 
