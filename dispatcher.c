@@ -4,20 +4,27 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include "da.h"
 #include "cda.h"
 
 #define BUF_SIZE 1024
 #define TIME_QUANTUM 1
 
+enum proc_state { ready, waiting };
+
 typedef struct process_struct {
     int arrival_time;
     int priority;
     int proc_time;
+    enum proc_state state;
     pid_t pid;
 } process;
 
 void startProcess(process *);
+void terminateProcess(process *);
+void suspendProcess(process *);
+void restartProcess(process *);
 char *str_from_int(int);
 DA *get_procs_with_arrival_time(CDA *, int);
 process *new_proc(int, int, int);
@@ -70,7 +77,7 @@ int main(int argc, char **argv) {
             insertCDAback(rq[curr_proc->priority], curr_proc);
         }
         if (currently_running && currently_running->proc_time == 0) {
-            kill(currently_running->pid, SIGINT);
+            terminateProcess(currently_running);
             if (sys_running) {
                 sys_running = 0;
             }
@@ -78,11 +85,21 @@ int main(int argc, char **argv) {
         } 
         
         if (sizeCDA(rq[0]) > 0 && !sys_running) {
+            // preempt
+            if (currently_running) {
+                suspendProcess(currently_running);
+                if (currently_running->priority != 3) {
+                    currently_running->priority--;
+                }
+                currently_running->state = waiting;
+                insertCDAback(rq[currently_running->priority], currently_running);
+            }
             process *sys_proc = removeCDAfront(rq[0]);
             startProcess(sys_proc);
             currently_running = sys_proc;   
             sys_running = 1;       
         }
+
        
         if (currently_running) {
             currently_running->proc_time--; 
@@ -104,6 +121,19 @@ void startProcess(process *p) {
     } else {
         p->pid = child_pid;
     }
+}
+
+void terminateProcess(process *p) {
+    kill(p->pid, SIGINT);
+    waitpid(p->pid, NULL, WUNTRACED);
+}
+
+void suspendProcess(process *p) {
+    kill(p->pid, SIGTSTP);
+}
+
+void restartProcess(process *p) {
+    kill(p->pid, SIGCONT);
 }
 
 char *str_from_int(int x) {
@@ -132,6 +162,7 @@ process *new_proc(int arrival_time, int priority, int proc_time) {
     np->priority = priority;
     np->proc_time = proc_time;
     np->pid = 0;
+    np->state = ready;
     return np;
 }
 
