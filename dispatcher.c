@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
         process *proc = new_proc(arrival_time, priority, proc_time);
         insertCDAback(dispatch_queue, proc);
     }
-
+    
     int curr_time = 0;
     int num_procs_processed = 0; 
     
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
     
     for (int i = 0; i < 4; i++) {
         rq[i] = newCDA(display_proc);
-    }
+    }    
 
     process *currently_running = 0;
     int sys_running = 0;
@@ -83,15 +83,12 @@ int main(int argc, char **argv) {
             }
             currently_running = 0;
         } 
-        
+      
+        // if there are system processes waiting to be run and one is not already running 
         if (sizeCDA(rq[0]) > 0 && !sys_running) {
             // preempt
             if (currently_running) {
                 suspendProcess(currently_running);
-                if (currently_running->priority != 3) {
-                    currently_running->priority--;
-                }
-                currently_running->state = waiting;
                 insertCDAback(rq[currently_running->priority], currently_running);
             }
             process *sys_proc = removeCDAfront(rq[0]);
@@ -99,15 +96,62 @@ int main(int argc, char **argv) {
             currently_running = sys_proc;   
             sys_running = 1;       
         }
+        // if sys queue is empty but last sys process running
+        else if (sys_running) {
 
-       
+        }
+        // if no sys process is running and 1st priority queue has some things in it 
+        else if (sizeCDA(rq[1]) > 0) {
+            if (currently_running) {
+                suspendProcess(currently_running);
+                insertCDAback(rq[currently_running->priority], currently_running);
+            }
+            process *one_proc = removeCDAfront(rq[1]);
+            if (one_proc->state == ready) {
+                startProcess(one_proc);
+            } else {
+                restartProcess(one_proc);
+            }
+            currently_running = one_proc;
+            sys_running = 0;
+        }
+        else if (sizeCDA(rq[2]) > 0) {
+            if (currently_running) {
+                suspendProcess(currently_running);
+                insertCDAback(rq[currently_running->priority], currently_running);
+            }
+            process *two_proc = removeCDAfront(rq[2]);
+            if (two_proc->state == ready) {
+                startProcess(two_proc);
+            } else {
+                restartProcess(two_proc);
+            }
+            currently_running = two_proc;
+            sys_running = 0;
+        }
+        else if (sizeCDA(rq[3]) > 0) {
+            if (currently_running) {
+                suspendProcess(currently_running);
+                insertCDAback(rq[currently_running->priority], currently_running);
+            }
+            process *three_proc = removeCDAfront(rq[3]);
+            if (three_proc->state == ready) {
+                startProcess(three_proc);
+            } else {
+                restartProcess(three_proc);
+            }
+            currently_running = three_proc;
+            sys_running = 0;
+        }
+        // decrement proc_time
         if (currently_running) {
             currently_running->proc_time--; 
         }
         curr_time++;
         free(curr_procs);
         sleep(TIME_QUANTUM);
-    }       
+    }
+     
     return 0;
 }
 
@@ -130,6 +174,11 @@ void terminateProcess(process *p) {
 
 void suspendProcess(process *p) {
     kill(p->pid, SIGTSTP);
+    waitpid(p->pid, NULL, WUNTRACED);
+    if (p->priority != 3) {
+        p->priority++;
+    }
+    p->state = waiting;
 }
 
 void restartProcess(process *p) {
