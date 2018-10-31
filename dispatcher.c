@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "da.h"
 #include "cda.h"
 
 #define BUF_SIZE 1024
@@ -14,6 +15,8 @@ typedef struct process_struct {
     int proc_time;
 } process;
 
+char *str_from_int(int);
+DA *get_procs_with_arrival_time(CDA *, int);
 process *new_proc(int, int, int);
 void display_proc(FILE *, void *);
 
@@ -41,18 +44,51 @@ int main(int argc, char **argv) {
             return 1;
         }
         process *proc = new_proc(arrival_time, priority, proc_time);
-        insertCDAfront(dispatch_queue, proc);
+        insertCDAback(dispatch_queue, proc);
     }
 
     int curr_time = 0;
+    int num_procs_processed = 0; 
+    
+    CDA **rq = malloc(sizeof(CDA *) * 4);
+    
+    for (int i = 0; i < 4; i++) {
+        rq[i] = newCDA(display_proc);
+    }
 
-    while (sizeCDA(dispatch_queue) > 0) {
-        process *curr_proc = (process *)removeCDAback(dispatch_queue);
-        
+    while (num_procs_processed != sizeCDA(dispatch_queue)) {
+        DA *curr_procs = get_procs_with_arrival_time(dispatch_queue, curr_time); 
+        num_procs_processed += sizeDA(curr_procs);
+        int i;
+        for (i = 0; i < sizeDA(curr_procs); i++) {
+            process *curr_proc = getDA(curr_procs, i);
+            printf("Arrived %d\n", curr_proc->arrival_time);
+        }                 
         curr_time++;
+        free(curr_procs);
         sleep(TIME_QUANTUM);
     }       
     return 0;
+}
+
+char *str_from_int(int x) {
+    char* buf = malloc(sizeof(char) * sizeof(int) * 4 + 1);
+    if (buf) {
+         sprintf(buf, "%d", x);
+    }
+    return buf;
+}
+
+DA *get_procs_with_arrival_time(CDA *dq, int arrival_time) {
+    DA *proc_list = newDA(display_proc);
+    int i;
+    for (i = 0; i < sizeCDA(dq); i++) {
+        process *curr_proc = (process *)getCDA(dq, i);
+        if (curr_proc->arrival_time == arrival_time) {
+            insertDA(proc_list, curr_proc);
+        }
+    }
+    return proc_list;
 }
 
 process *new_proc(int arrival_time, int priority, int proc_time) {
