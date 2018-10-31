@@ -47,7 +47,8 @@ int main(int argc, char **argv) {
     int proc_ptr = 0;
     while (proc_ptr < sizeDA(proc_da)) {
         process *curr_proc = (process *)getDA(proc_da, proc_ptr);
-        if (curr_proc->arrival_time == curr_time) {
+        printf("curr_time = %d, proc_time = %d\n", curr_time, curr_proc->arrival_time);
+        while (curr_proc->arrival_time == curr_time && proc_ptr < sizeDA(proc_da)) {
             pid_t child_pid = fork();
             if (child_pid == 0) {
                 char *time_buf = malloc(sizeof(char) * sizeof(int) * 4 + 1);
@@ -56,6 +57,7 @@ int main(int argc, char **argv) {
                 proc_args[0] = time_buf;
                 execvp("./process", proc_args);
             }
+            curr_proc = getDA(proc_da, proc_ptr++);
         }
         sleep(1);
         curr_time++; 
