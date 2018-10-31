@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <unistd.h>
 #include "da.h"
 #include "cda.h"
@@ -13,8 +14,10 @@ typedef struct process_struct {
     int arrival_time;
     int priority;
     int proc_time;
+    pid_t pid;
 } process;
 
+void startProcess(process *);
 char *str_from_int(int);
 DA *get_procs_with_arrival_time(CDA *, int);
 process *new_proc(int, int, int);
@@ -56,19 +59,51 @@ int main(int argc, char **argv) {
         rq[i] = newCDA(display_proc);
     }
 
-    while (num_procs_processed != sizeCDA(dispatch_queue)) {
+    process *currently_running = 0;
+    int sys_running = 0;
+    while (currently_running || num_procs_processed != sizeCDA(dispatch_queue)) {
         DA *curr_procs = get_procs_with_arrival_time(dispatch_queue, curr_time); 
         num_procs_processed += sizeDA(curr_procs);
         int i;
         for (i = 0; i < sizeDA(curr_procs); i++) {
-            process *curr_proc = getDA(curr_procs, i);
-            printf("Arrived %d\n", curr_proc->arrival_time);
-        }                 
+            process *curr_proc = (process *)getDA(curr_procs, i);
+            insertCDAback(rq[curr_proc->priority], curr_proc);
+        }
+        if (currently_running && currently_running->proc_time == 0) {
+            kill(currently_running->pid, SIGINT);
+            if (sys_running) {
+                sys_running = 0;
+            }
+            currently_running = 0;
+        } 
+        
+        if (sizeCDA(rq[0]) > 0 && !sys_running) {
+            process *sys_proc = removeCDAfront(rq[0]);
+            startProcess(sys_proc);
+            currently_running = sys_proc;   
+            sys_running = 1;       
+        }
+       
+        if (currently_running) {
+            currently_running->proc_time--; 
+        }
         curr_time++;
         free(curr_procs);
         sleep(TIME_QUANTUM);
     }       
     return 0;
+}
+
+void startProcess(process *p) {
+    pid_t child_pid = fork();
+    if (child_pid == 0) {
+        char **argv = malloc(sizeof(char *) * 1);
+        argv[0] = "./process";
+        argv[1] = "20";
+        execvp(argv[0], argv);
+    } else {
+        p->pid = child_pid;
+    }
 }
 
 char *str_from_int(int x) {
@@ -96,6 +131,7 @@ process *new_proc(int arrival_time, int priority, int proc_time) {
     np->arrival_time = arrival_time;
     np->priority = priority;
     np->proc_time = proc_time;
+    np->pid = 0;
     return np;
 }
 
