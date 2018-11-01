@@ -42,7 +42,6 @@ void startProcess(process *);
 void terminateProcess(process *);
 void suspendProcess(process *);
 void restartProcess(process *);
-char *str_from_int(int);
 DA *get_procs_with_arrival_time(CDA *, int);
 process *new_proc(int, int, int);
 void display_proc(FILE *, void *);
@@ -231,13 +230,6 @@ void restartProcess(process *p) {
     kill(p->pid, SIGCONT);
 }
 
-char *str_from_int(int x) {
-    char* buf = malloc(sizeof(char) * sizeof(int) * 4 + 1);
-    if (buf) {
-         sprintf(buf, "%d", x);
-    }
-    return buf;
-}
 
 DA *get_procs_with_arrival_time(CDA *dq, int arrival_time) {
     DA *proc_list = newDA(display_proc);
