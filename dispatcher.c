@@ -203,10 +203,11 @@ int main(int argc, char **argv) {
 void startProcess(process *p) {
     pid_t child_pid = fork();
     if (child_pid == 0) {
-        char **argv = malloc(sizeof(char *) * 1);
+        char **argv = malloc(sizeof(char *) * 2);
         argv[0] = "./process";
         argv[1] = "20";
         execvp(argv[0], argv);
+        free(argv);    
     } else {
         p->pid = child_pid;
     }
